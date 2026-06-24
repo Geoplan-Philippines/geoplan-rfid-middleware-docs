@@ -1,5 +1,5 @@
 /**
- * SSI RFID Middleware — API reference data.
+ * Geoplan RFID Middleware API Docs reference data.
  *
  * Single source of truth for the standalone docs site. Each endpoint is a plain
  * object so non-developers can extend it without touching render logic.
@@ -12,7 +12,7 @@
  */
 
 const API_INFO = {
-  title: 'SSI RFID Middleware API',
+  title: 'Geoplan RFID Middleware API Docs',
   subtitle: 'Integration layer between GeoPlan, ETP POS, SAP/Samooha and the store bridge agents',
   baseUrl: 'http://localhost:8000/api/v1',
   goLive: 'October 1, 2026',
@@ -37,7 +37,7 @@ const CONVENTIONS = [
       'Send your key in the <code>x-api-key</code> request header. A global guard ' +
       'protects every route except those explicitly marked <em>Public</em> ' +
       '(health check + API-key creation). Missing/invalid keys return <code>401</code>. ' +
-      'Keys are SHA-256 hashed at rest — the plaintext is shown only once at creation.',
+      'Keys are SHA-256 hashed at rest; the plaintext is shown only once at creation.',
   },
   {
     title: 'Success envelope',
@@ -94,7 +94,7 @@ const GROUPS = [
         source: 'src/core/health/health.controller.ts',
         description:
           'Liveness/readiness probe. Runs a Prisma ping against PostgreSQL so an orchestrator ' +
-          '(Cloud Run, k8s, load balancer) can tell whether the service AND its database are up. Public — no API key required.',
+          '(Cloud Run, k8s, load balancer) can tell whether the service AND its database are up. Public, so no API key required.',
         responses: [
           {
             status: 200,
@@ -112,7 +112,7 @@ const GROUPS = [
           },
         ],
         errors: [
-          { status: 503, code: 'ServiceUnavailable', when: 'Database ping fails — body contains the failing indicator under "error".' },
+          { status: 503, code: 'ServiceUnavailable', when: 'Database ping fails; body contains the failing indicator under "error".' },
         ],
       },
       {
@@ -144,7 +144,7 @@ const GROUPS = [
   /* ------------------------------------------------------------------ */
   {
     id: 'api-keys',
-    name: 'Authentication — API Keys',
+    name: 'Authentication & API Keys',
     blurb:
       'Issue and manage the API keys that authenticate partner systems (ETP, GeoPlan, bridge agents). ' +
       'Keys are stored as SHA-256 hashes; the plaintext is returned exactly once.',
@@ -159,14 +159,14 @@ const GROUPS = [
         source: 'src/modules/api-keys/api-keys.controller.ts',
         description:
           'Generates a new API key (prefix "rfid_"), stores only its hash, and returns the plaintext ' +
-          'key once. The caller MUST capture the plaintext immediately — it cannot be recovered later. ' +
+          'key once. The caller MUST capture the plaintext immediately; it cannot be recovered later. ' +
           'Currently Public to allow first-key bootstrap; lock this down (network policy / admin guard) before production.',
         requestBody: {
           contentType: 'application/json',
           fields: [
             { name: 'name', type: 'string', required: true, description: 'Human label for the key. Max 120 chars.' },
           ],
-          sample: { name: 'ETP POS — Store 014' },
+          sample: { name: 'ETP POS, Store 014' },
         },
         responses: [
           {
@@ -177,7 +177,7 @@ const GROUPS = [
               message: 'Success',
               data: {
                 id: '9f1c2b6e-2c4a-4f1e-9a3d-7b0c5e8a1f23',
-                name: 'ETP POS — Store 014',
+                name: 'ETP POS, Store 014',
                 apiKey: 'rfid_8Xk2...redacted...Qz',
                 createdAt: '2026-06-24T08:15:00.000Z',
                 updatedAt: '2026-06-24T08:15:00.000Z',
@@ -206,7 +206,7 @@ const GROUPS = [
               data: [
                 {
                   id: '9f1c2b6e-2c4a-4f1e-9a3d-7b0c5e8a1f23',
-                  name: 'ETP POS — Store 014',
+                  name: 'ETP POS, Store 014',
                   createdAt: '2026-06-24T08:15:00.000Z',
                   updatedAt: '2026-06-24T08:15:00.000Z',
                 },
@@ -333,7 +333,7 @@ const GROUPS = [
           { status: 503, code: 'ServiceUnavailable', when: 'Upstream master data source returned a non-2xx for any page.' },
         ],
         notes: [
-          'Returned lastSyncAt is captured at run start — feed it into the next incremental run.',
+          'Returned lastSyncAt is captured at run start; feed it into the next incremental run.',
           'Source contract is the ICD master-data feed; only sku/gtin(barcode)/productName(name) are currently persisted.',
         ],
       },
@@ -647,7 +647,7 @@ const GROUPS = [
             { name: 'notes', type: 'string', required: false, description: 'Free text. Max 500.' },
           ],
           sample: {
-            name: 'Store 014 — Checkout 2 Flatbed',
+            name: 'Store 014 Checkout 2 Flatbed',
             serialNumber: 'IDATA-A500-014-02',
             model: 'iData A500',
             ipAddress: '10.14.2.21',
@@ -664,7 +664,7 @@ const GROUPS = [
               message: 'Success',
               data: {
                 id: 'b1d9f4a2-3c5e-4f8a-9b1c-2d3e4f5a6b7c',
-                name: 'Store 014 — Checkout 2 Flatbed',
+                name: 'Store 014 Checkout 2 Flatbed',
                 serialNumber: 'IDATA-A500-014-02',
                 model: 'iData A500',
                 ipAddress: '10.14.2.21',
@@ -703,7 +703,7 @@ const GROUPS = [
               data: [
                 {
                   id: 'b1d9f4a2-3c5e-4f8a-9b1c-2d3e4f5a6b7c',
-                  name: 'Store 014 — Checkout 2 Flatbed',
+                  name: 'Store 014 Checkout 2 Flatbed',
                   serialNumber: 'IDATA-A500-014-02',
                   model: 'iData A500',
                   ipAddress: '10.14.2.21',
@@ -737,7 +737,7 @@ const GROUPS = [
               message: 'Success',
               data: {
                 id: 'b1d9f4a2-3c5e-4f8a-9b1c-2d3e4f5a6b7c',
-                name: 'Store 014 — Checkout 2 Flatbed',
+                name: 'Store 014 Checkout 2 Flatbed',
                 serialNumber: 'IDATA-A500-014-02',
                 model: 'iData A500',
                 ipAddress: '10.14.2.21',
@@ -764,7 +764,7 @@ const GROUPS = [
         requestBody: {
           contentType: 'application/json',
           fields: [{ name: '(any create field)', type: 'partial', required: false, description: 'Provide only the fields to change.' }],
-          sample: { status: 'MAINTENANCE', notes: 'RMA pending — antenna fault' },
+          sample: { status: 'MAINTENANCE', notes: 'RMA pending, antenna fault' },
         },
         responses: [
           {
@@ -775,12 +775,12 @@ const GROUPS = [
               message: 'Success',
               data: {
                 id: 'b1d9f4a2-3c5e-4f8a-9b1c-2d3e4f5a6b7c',
-                name: 'Store 014 — Checkout 2 Flatbed',
+                name: 'Store 014 Checkout 2 Flatbed',
                 serialNumber: 'IDATA-A500-014-02',
                 model: 'iData A500',
                 ipAddress: '10.14.2.21',
                 status: 'MAINTENANCE',
-                notes: 'RMA pending — antenna fault',
+                notes: 'RMA pending, antenna fault',
                 createdAt: '2026-06-24T09:00:00.000Z',
                 updatedAt: '2026-06-24T10:12:00.000Z',
               },
@@ -816,7 +816,7 @@ const GROUPS = [
     id: 'sale-confirmation',
     name: 'Sale Confirmation & Tag Deactivation',
     blurb:
-      'POST-SALE relay only — outside the 3,000ms checkout hot path. ETP confirms a completed sale; the ' +
+      'POST-SALE relay only, outside the 3,000ms checkout hot path. ETP confirms a completed sale; the ' +
       'middleware relays a tag-deactivation command to GeoPlan → bridge agent. Core sale flow from the brief; not yet built.',
     endpoints: [
       {
@@ -829,7 +829,7 @@ const GROUPS = [
         description:
           'ETP POS posts a completed sale with the EPCs that were billed. Middleware logs the POS integration ' +
           'event and queues tag deactivation downstream (GeoPlan → bridge agent → scanner). Must NEVER be called ' +
-          'during active checkout — it runs after the bill is finalised, keeping the hot path GeoPlan-free.',
+          'during active checkout; it runs after the bill is finalised, keeping the hot path GeoPlan-free.',
         requestBody: {
           contentType: 'application/json',
           fields: [
@@ -863,7 +863,7 @@ const GROUPS = [
         ],
         errors: [
           { status: 400, code: 'BadRequest', when: 'Missing storeId/posTransactionId/epcs.' },
-          { status: 409, code: 'Conflict', when: 'Duplicate posTransactionId (already processed) — idempotent replay.' },
+          { status: 409, code: 'Conflict', when: 'Duplicate posTransactionId (already processed); idempotent replay.' },
         ],
         notes: ['Idempotent on posTransactionId so POS retries do not double-deactivate.'],
       },
@@ -1075,7 +1075,7 @@ const GROUPS = [
         ],
         errors: [
           { status: 400, code: 'BadRequest', when: 'Neither sessionId nor epcs provided, or invalid type.' },
-          { status: 422, code: 'UnprocessableEntity', when: 'EPCs cannot be resolved to SKUs — routed to exceptions.' },
+          { status: 422, code: 'UnprocessableEntity', when: 'EPCs cannot be resolved to SKUs; routed to exceptions.' },
         ],
       },
       {
