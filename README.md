@@ -34,7 +34,7 @@ first load needs internet access.
 
 | File                              | Purpose                                                       |
 | --------------------------------- | ------------------------------------------------------------- |
-| `index.html`                      | Page shell, overview, conventions, filter/search controls.    |
+| `index.html`                      | Page shell, overview, conventions, search control.            |
 | `js/data.js`                      | **Single source of truth**: all endpoints as plain JS objects. |
 | `js/app.js`                       | Renderer. Builds the sidebar, cards, tables and copy buttons. |
 | `assets/architecture-diagram.png` | Architecture diagram shown in the overview.                   |

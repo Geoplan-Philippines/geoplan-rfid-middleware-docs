@@ -14,7 +14,7 @@
 const API_INFO = {
   title: 'Geoplan RFID Middleware API Docs',
   subtitle: 'Integration layer between GeoPlan, ETP POS, SAP/Samooha and the store bridge agents',
-  baseUrl: 'http://localhost:8000/api/v1',
+  baseUrl: 'https://rfid-middleware.geoplanph.com/api/v1',
   goLive: 'October 1, 2026',
   repo: 'ssi-rfid-middleware (NestJS / TypeScript / Prisma / PostgreSQL)',
 };
@@ -28,16 +28,19 @@ const CONVENTIONS = [
     title: 'Base URL & versioning',
     body:
       'All routes are served under the global prefix <code>/api</code> with URI versioning, ' +
-      'default version <code>v1</code>. Effective base URL in local dev is ' +
-      '<code>http://localhost:8000/api/v1</code> (port from <code>PORT</code>, default 8000).',
+      'default version <code>v1</code>. The production base URL is ' +
+      '<code>https://rfid-middleware.geoplanph.com/api/v1</code> ' +
+      '(<em>provisioning in progress — confirm with GeoPlan before go-live</em>). ' +
+      'For local development the service runs at <code>http://localhost:8000/api/v1</code>.',
   },
   {
     title: 'Authentication',
     body:
-      'Send your key in the <code>x-api-key</code> request header. A global guard ' +
-      'protects every route except those explicitly marked <em>Public</em> ' +
-      '(health check + API-key creation). Missing/invalid keys return <code>401</code>. ' +
-      'Keys are SHA-256 hashed at rest; the plaintext is shown only once at creation.',
+      'Every request must include your API key in the <code>x-api-key</code> request header. ' +
+      'Keys are issued by GeoPlan — <em>request a key (or a replacement) from your GeoPlan contact</em>; ' +
+      'they are provisioned for you, not self-served. A global guard protects every route except those ' +
+      'explicitly marked <em>Public</em> (health check only). Missing or invalid keys return <code>401</code>. ' +
+      'Treat your key as a secret: do not embed it in client-side code or commit it to source control.',
   },
   {
     title: 'Success envelope',
@@ -82,7 +85,7 @@ const GROUPS = [
   {
     id: 'system',
     name: 'System & Health',
-    blurb: 'Liveness/readiness probes and the default service root.',
+    blurb: 'Liveness/readiness probes for the middleware service and its database.',
     endpoints: [
       {
         id: 'health-check',
@@ -113,123 +116,6 @@ const GROUPS = [
         ],
         errors: [
           { status: 503, code: 'ServiceUnavailable', when: 'Database ping fails; body contains the failing indicator under "error".' },
-        ],
-      },
-      {
-        id: 'service-root',
-        method: 'GET',
-        path: '/',
-        title: 'Service root (scaffold)',
-        status: 'implemented',
-        auth: true,
-        source: 'src/app.controller.ts',
-        description:
-          'Default NestJS scaffold route returning a static greeting. Kept for a trivial ' +
-          '"is the app reachable" smoke test. Candidate for removal once a real landing/info ' +
-          'endpoint exists.',
-        responses: [
-          {
-            status: 200,
-            description: 'Static greeting wrapped in the standard envelope.',
-            sample: { statusCode: 200, message: 'Success', data: 'Hello World!' },
-          },
-        ],
-        errors: [{ status: 401, code: 'Unauthorized', when: 'Missing/invalid x-api-key.' }],
-      },
-    ],
-  },
-
-  /* ------------------------------------------------------------------ */
-  /* API KEYS                                                            */
-  /* ------------------------------------------------------------------ */
-  {
-    id: 'api-keys',
-    name: 'Authentication & API Keys',
-    blurb:
-      'Issue and manage the API keys that authenticate partner systems (ETP, GeoPlan, bridge agents). ' +
-      'Keys are stored as SHA-256 hashes; the plaintext is returned exactly once.',
-    endpoints: [
-      {
-        id: 'create-api-key',
-        method: 'POST',
-        path: '/api-keys',
-        title: 'Create API key',
-        status: 'implemented',
-        auth: false,
-        source: 'src/modules/api-keys/api-keys.controller.ts',
-        description:
-          'Generates a new API key (prefix "rfid_"), stores only its hash, and returns the plaintext ' +
-          'key once. The caller MUST capture the plaintext immediately; it cannot be recovered later. ' +
-          'Currently Public to allow first-key bootstrap; lock this down (network policy / admin guard) before production.',
-        requestBody: {
-          contentType: 'application/json',
-          fields: [
-            { name: 'name', type: 'string', required: true, description: 'Human label for the key. Max 120 chars.' },
-          ],
-          sample: { name: 'ETP POS, Store 014' },
-        },
-        responses: [
-          {
-            status: 201,
-            description: 'Key created. "apiKey" appears only in this response.',
-            sample: {
-              statusCode: 201,
-              message: 'Success',
-              data: {
-                id: '9f1c2b6e-2c4a-4f1e-9a3d-7b0c5e8a1f23',
-                name: 'ETP POS, Store 014',
-                apiKey: 'rfid_8Xk2...redacted...Qz',
-                createdAt: '2026-06-24T08:15:00.000Z',
-                updatedAt: '2026-06-24T08:15:00.000Z',
-              },
-            },
-          },
-        ],
-        errors: [{ status: 400, code: 'BadRequest', when: 'Missing/empty "name" or unknown fields.' }],
-      },
-      {
-        id: 'list-api-keys',
-        method: 'GET',
-        path: '/api-keys',
-        title: 'List API keys',
-        status: 'implemented',
-        auth: true,
-        source: 'src/modules/api-keys/api-keys.controller.ts',
-        description: 'Lists key metadata, newest first. Secrets/hashes are never returned.',
-        responses: [
-          {
-            status: 200,
-            description: 'Array of key metadata.',
-            sample: {
-              statusCode: 200,
-              message: 'Success',
-              data: [
-                {
-                  id: '9f1c2b6e-2c4a-4f1e-9a3d-7b0c5e8a1f23',
-                  name: 'ETP POS, Store 014',
-                  createdAt: '2026-06-24T08:15:00.000Z',
-                  updatedAt: '2026-06-24T08:15:00.000Z',
-                },
-              ],
-            },
-          },
-        ],
-        errors: [{ status: 401, code: 'Unauthorized', when: 'Missing/invalid x-api-key.' }],
-      },
-      {
-        id: 'revoke-api-key',
-        method: 'DELETE',
-        path: '/api-keys/:id',
-        title: 'Revoke API key',
-        status: 'implemented',
-        auth: true,
-        source: 'src/modules/api-keys/api-keys.controller.ts',
-        description: 'Permanently deletes (revokes) a key by id. Effective immediately.',
-        pathParams: [{ name: 'id', type: 'uuid', description: 'API key id.' }],
-        responses: [{ status: 204, description: 'Revoked. Empty body.', sample: null }],
-        errors: [
-          { status: 401, code: 'Unauthorized', when: 'Missing/invalid x-api-key.' },
-          { status: 404, code: 'NotFound', when: 'No key with that id.' },
         ],
       },
     ],

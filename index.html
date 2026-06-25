@@ -162,13 +162,9 @@
             <span class="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 font-medium text-sky-700 ring-1 ring-inset ring-sky-600/20">🌐 Public</span>
           </div>
 
-          <!-- Architecture diagram -->
-          <details class="group mt-6 max-w-3xl overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
-            <summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-zinc-800">
-              <span>Architecture diagram</span>
-              <span class="font-mono text-xs text-zinc-400 group-open:hidden">show</span>
-              <span class="hidden font-mono text-xs text-zinc-400 group-open:inline">hide</span>
-            </summary>
+          <!-- Architecture diagram (always visible) -->
+          <figure class="mt-6 max-w-3xl overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+            <figcaption class="px-4 py-3 text-sm font-semibold text-zinc-800">Architecture diagram</figcaption>
             <div class="border-t border-zinc-200 p-4">
               <img
                 src="assets/architecture-diagram.png"
@@ -177,20 +173,14 @@
                 onerror="this.replaceWith(Object.assign(document.createElement('p'),{className:'text-sm text-zinc-500',textContent:'Diagram not found at assets/architecture-diagram.png'}))"
               />
             </div>
-          </details>
+          </figure>
 
-          <!-- Filters -->
-          <div class="mt-8 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-6">
-            <span class="text-[13px] font-medium text-zinc-500">Filter</span>
-            <div class="inline-flex overflow-hidden rounded-lg border border-zinc-300">
-              <button data-filter="all" class="filter-btn bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white">All</button>
-              <button data-filter="implemented" class="filter-btn border-l border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Implemented</button>
-              <button data-filter="planned" class="filter-btn border-l border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Planned</button>
-            </div>
+          <!-- Mobile search (header search is hidden on small screens) -->
+          <div class="mt-8 border-t border-zinc-200 pt-6 sm:hidden">
             <input
               type="search"
               placeholder="Search endpoints…"
-              class="js-search ml-auto w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm placeholder:text-zinc-500 focus:border-zinc-900 focus:outline-none sm:hidden"
+              class="js-search w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm placeholder:text-zinc-500 focus:border-zinc-900 focus:outline-none"
             />
           </div>
         </section>

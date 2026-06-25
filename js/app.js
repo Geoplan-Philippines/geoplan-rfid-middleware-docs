@@ -262,14 +262,12 @@
 
   // ---- filtering -----------------------------------------------------------
 
-  let activeFilter = 'all';
   let searchTerm = '';
 
   const applyFilters = () => {
     document.querySelectorAll('.endpoint').forEach((card) => {
-      const matchStatus = activeFilter === 'all' || card.dataset.status === activeFilter;
       const matchSearch = !searchTerm || card.dataset.search.includes(searchTerm);
-      card.style.display = matchStatus && matchSearch ? '' : 'none';
+      card.style.display = matchSearch ? '' : 'none';
     });
     document.querySelectorAll('.group-section').forEach((section) => {
       const anyVisible = Array.from(section.querySelectorAll('.endpoint')).some((c) => c.style.display !== 'none');
@@ -277,26 +275,7 @@
     });
   };
 
-  const setFilterActive = (activeBtn) => {
-    document.querySelectorAll('.filter-btn').forEach((b) => {
-      const on = b === activeBtn;
-      b.classList.toggle('bg-zinc-900', on);
-      b.classList.toggle('text-white', on);
-      b.classList.toggle('bg-white', !on);
-      b.classList.toggle('text-zinc-700', !on);
-      b.classList.toggle('hover:bg-zinc-50', !on);
-    });
-  };
-
   const wireControls = () => {
-    document.querySelectorAll('.filter-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        activeFilter = btn.dataset.filter;
-        setFilterActive(btn);
-        applyFilters();
-      });
-    });
-
     const searchInputs = document.querySelectorAll('.js-search');
     searchInputs.forEach((search) => {
       search.addEventListener('input', () => {
