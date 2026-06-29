@@ -20,7 +20,7 @@ const API_INFO = {
   documentNotice:
     'This document is subject to change while the integration contract is being agreed. ' +
     'Items marked “to confirm” are not final requirements.',
-  documentRevision: 'Revision 0.1 · Updated 28 June 2026',
+  documentRevision: 'Revision 0.1 · Updated 29 June 2026',
   goLive: 'October 1, 2026',
   repo: 'ssi-rfid-middleware (NestJS / TypeScript / Prisma / PostgreSQL)',
 };
@@ -707,8 +707,9 @@ const GROUPS = [
         method: 'GET',
         path: '/epc-scan-processing/sessions',
         title: 'List scan sessions',
-        status: 'planned',
+        status: 'implemented',
         auth: true,
+        source: 'src/modules/epc-scan-processing/epc-scan-processing.controller.ts',
         description:
           'Paginated/filterable list of sessions (by status, device, date range). Needed for an ops view of ' +
           'in-progress and historical counts; today sessions are only retrievable by exact id.',
@@ -738,8 +739,9 @@ const GROUPS = [
         method: 'POST',
         path: '/epc-scan-processing/sessions/:sessionId/cancel',
         title: 'Cancel scan session',
-        status: 'planned',
+        status: 'implemented',
         auth: true,
+        source: 'src/modules/epc-scan-processing/epc-scan-processing.controller.ts',
         description:
           'Aborts an OPEN session (e.g. mis-scan / wrong reference) without it counting as a completed count. ' +
           'Requires adding a CANCELLED state to the session status enum.',
@@ -1300,8 +1302,9 @@ const GROUPS = [
         method: 'GET',
         path: '/exceptions',
         title: 'List exceptions',
-        status: 'planned',
+        status: 'implemented',
         auth: true,
+        source: 'src/modules/exception-handling/exception-handling.controller.ts',
         description: 'Paginated/filterable queue of open and resolved exceptions across the integration.',
         queryParams: [
           { name: 'type', type: 'enum(UNKNOWN_EPC|STOCK_MISMATCH|POSTING_FAILED|DEACTIVATION_FAILED)', required: false, description: 'Filter by exception type.' },
@@ -1327,8 +1330,9 @@ const GROUPS = [
         method: 'GET',
         path: '/exceptions/:id',
         title: 'Get exception',
-        status: 'planned',
+        status: 'implemented',
         auth: true,
+        source: 'src/modules/exception-handling/exception-handling.controller.ts',
         description: 'Full exception detail with context payload for triage.',
         pathParams: [{ name: 'id', type: 'uuid', description: 'Exception id.' }],
         responses: [
@@ -1345,8 +1349,9 @@ const GROUPS = [
         method: 'POST',
         path: '/exceptions/:id/resolve',
         title: 'Resolve exception',
-        status: 'planned',
+        status: 'implemented',
         auth: true,
+        source: 'src/modules/exception-handling/exception-handling.controller.ts',
         description: 'Marks an exception resolved with a resolution note/action (e.g. re-tag, manual ERP adjustment, ignore).',
         pathParams: [{ name: 'id', type: 'uuid', description: 'Exception id.' }],
         requestBody: {
