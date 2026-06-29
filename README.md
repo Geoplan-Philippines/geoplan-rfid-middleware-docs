@@ -1,11 +1,11 @@
 # Geoplan RFID Middleware API Docs (standalone)
 
-A self-contained, static API reference for the middleware. No build step, no
-NestJS, no database. Just HTML + Tailwind (Play CDN) + vanilla JS.
+A self-contained, static integration reference. No build step, no NestJS, no
+database. Just HTML + Tailwind (Play CDN) + vanilla JS.
 
-It documents **every endpoint in this repo today** plus a set of **proposed
-future endpoints** derived from the project brief and discovery tracker. Each
-endpoint is tagged:
+It documents partner-owned delivery contracts separately for ETP POS and
+Samooha, every middleware endpoint in this repo today, and proposed future
+middleware endpoints. Each middleware endpoint is tagged:
 
 - 🟢 **Implemented**: code exists under `src/modules`.
 - 🟠 **Planned**: proposal only, not built yet.
@@ -34,16 +34,19 @@ first load needs internet access.
 
 | File                              | Purpose                                                       |
 | --------------------------------- | ------------------------------------------------------------- |
-| `index.html`                      | Page shell, overview, conventions, search control.            |
-| `js/data.js`                      | **Single source of truth**: all endpoints as plain JS objects. |
-| `js/app.js`                       | Renderer. Builds the sidebar, cards, tables and copy buttons. |
+| `index.html`                      | Page shell, overview, partner section, conventions, search.   |
+| `js/data.js`                      | **Single source of truth**: partner contracts and endpoints.  |
+| `js/app.js`                       | Renderer. Builds navigation, contracts, tables, and examples. |
 | `assets/architecture-diagram.png` | Architecture diagram shown in the overview.                   |
 
 ## Keeping it accurate
 
-When you add or change a controller under `src/modules`, update the matching
-entry in `js/data.js`. Each implemented endpoint carries a `source` path pointing
-back to its controller so the two stay easy to reconcile.
+When a partner contract changes, update its entry in `PARTNER_REQUIREMENTS`.
+ETP POS and Samooha are intentionally separate entries even when they share a
+schema. When a controller changes under `src/modules`, update the matching
+entry in `GROUPS`. Each implemented endpoint carries a `source` path pointing
+back to its controller.
 
-`Planned` entries are intentionally loose. Confirm exact request/response shapes
-against the ICD and the (pending) ETP API contracts before building them.
+`Planned` entries and partner items marked `to confirm` are not final. Confirm
+them against the agreed ICD plus the ETP POS and Samooha contracts before
+building against them.

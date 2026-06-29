@@ -12,9 +12,15 @@
  */
 
 const API_INFO = {
-  title: 'Geoplan RFID Middleware API Docs',
-  subtitle: 'Integration layer between GeoPlan, ETP POS, SAP/Samooha and the store bridge agents',
+  title: 'GeoPlan RFID Integration Reference',
+  subtitle: 'Delivery contracts for ETP POS, Samooha, and the GeoPlan RFID middleware',
   baseUrl: 'https://rfid-middleware.geoplanph.com/api/v1',
+  documentStatus: 'Working draft',
+  documentScope: 'Current scope: master data sync',
+  documentNotice:
+    'This document is subject to change while the integration contract is being agreed. ' +
+    'Items marked “to confirm” are not final requirements.',
+  documentRevision: 'Revision 0.1 · Updated 28 June 2026',
   goLive: 'October 1, 2026',
   repo: 'ssi-rfid-middleware (NestJS / TypeScript / Prisma / PostgreSQL)',
 };
@@ -32,6 +38,12 @@ const CONVENTIONS = [
       '<code>https://rfid-middleware.geoplanph.com/api/v1</code> ' +
       '(<em>provisioning in progress — confirm with GeoPlan before go-live</em>). ' +
       'For local development the service runs at <code>http://localhost:8000/api/v1</code>.',
+  },
+  {
+    title: 'Contract status & changes',
+    body:
+      'This is a working integration reference. <em>Proposed contract</em> and <em>to confirm</em> items are not final. ' +
+      'Once approved, each partner contract should carry a version and change log. Breaking field or behavior changes require a new API version or an agreed migration window.',
   },
   {
     title: 'Authentication',
@@ -75,6 +87,227 @@ const CONVENTIONS = [
       'List endpoints accept <code>page</code> (min 1, default 1) and <code>limit</code> ' +
       '(1–50, default 10). Responses include ' +
       '<code>meta: { total, page, limit, lastPage }</code>.',
+  },
+];
+
+const MASTER_DATA_QUERY_PARAMS = [
+  {
+    name: 'page',
+    type: 'integer',
+    required: false,
+    default: '1',
+    description: 'One-based page number for the filtered result.',
+  },
+  {
+    name: 'limit',
+    type: 'integer',
+    required: false,
+    default: '1000',
+    description: 'Maximum records returned per page. The current middleware requests 1000.',
+  },
+  {
+    name: 'updatedAfter',
+    type: 'ISO-8601 UTC datetime',
+    required: false,
+    description: 'Return only records whose updatedAt is later than this checkpoint. Omitted for the initial full load.',
+  },
+  {
+    name: 'includeDeleted',
+    type: 'boolean',
+    required: false,
+    default: 'false',
+    description: 'When true, include deleted products as tombstones. GeoPlan sends true during delta syncs.',
+  },
+];
+
+const MASTER_DATA_PRODUCT_FIELDS = [
+  { name: 'id', type: 'string / UUID', required: true, description: 'Stable source-system product identifier.' },
+  { name: 'sku', type: 'string', required: true, description: 'Stable business key used for middleware upserts. Treat as immutable.' },
+  { name: 'barcode', type: 'string', required: true, description: 'GTIN or barcode used by barcode-mode POS and mapped to gtin in GeoPlan.' },
+  { name: 'name', type: 'string', required: true, description: 'Product display name.' },
+  { name: 'brand', type: 'string', required: false, description: 'Brand value. Accepted for future mapping; not stored by the current module.' },
+  { name: 'category', type: 'string', required: false, description: 'Product category. Accepted for future mapping.' },
+  { name: 'department', type: 'string', required: false, description: 'Merchandising department. Accepted for future mapping.' },
+  { name: 'size', type: 'string', required: false, description: 'Product size. Accepted for future mapping.' },
+  { name: 'color', type: 'string', required: false, description: 'Product color. Accepted for future mapping.' },
+  { name: 'costPrice', type: 'number', required: false, description: 'Cost price. Accepted for future mapping.' },
+  { name: 'retailPrice', type: 'number', required: false, description: 'Retail price. Accepted for future mapping.' },
+  { name: 'season', type: 'string', required: false, description: 'Season or collection code. Accepted for future mapping.' },
+  { name: 'supplier', type: 'string', required: false, description: 'Supplier code. Accepted for future mapping.' },
+  { name: 'status', type: 'ACTIVE | INACTIVE | DISCONTINUED', required: false, description: 'Current product lifecycle status.' },
+  { name: 'isDeleted', type: 'boolean', required: true, description: 'False for active records. True for a deletion tombstone.' },
+  { name: 'deletedAt', type: 'ISO-8601 UTC datetime | null', required: true, description: 'Required when isDeleted is true; otherwise null.' },
+  { name: 'createdAt', type: 'ISO-8601 UTC datetime', required: true, description: 'Source-system creation time.' },
+  { name: 'updatedAt', type: 'ISO-8601 UTC datetime', required: true, description: 'Must advance on every insert, edit, status change, and deletion.' },
+];
+
+const MASTER_DATA_META_FIELDS = [
+  { name: 'total', type: 'integer', required: true, description: 'Number of records matching the current full or delta filter.' },
+  { name: 'catalogTotal', type: 'integer', required: true, description: 'Total products in the complete source catalog before delta filtering.' },
+  { name: 'page', type: 'integer', required: true, description: 'Current one-based page.' },
+  { name: 'limit', type: 'integer', required: true, description: 'Applied page size.' },
+  { name: 'totalPages', type: 'integer', required: true, description: 'Pages in the filtered result, not in the full catalog.' },
+  { name: 'hasNext', type: 'boolean', required: true, description: 'Whether another filtered page is available.' },
+  { name: 'hasPrev', type: 'boolean', required: true, description: 'Whether a previous filtered page exists.' },
+  { name: 'syncTimestamp', type: 'ISO-8601 UTC datetime', required: true, description: 'Source-generated high-water mark for this stable snapshot.' },
+];
+
+const MASTER_DATA_ERRORS = [
+  { status: '400', when: 'Invalid page, limit, timestamp, or boolean value.', geoPlanBehavior: 'Fail the run and keep the previous checkpoint.' },
+  { status: '401 / 403', when: 'Missing, expired, or unauthorized server credential.', geoPlanBehavior: 'Fail the run and alert operations.' },
+  { status: '429', when: 'Source rate limit reached, if rate limiting is enabled.', geoPlanBehavior: 'Treat as retryable; exact retry policy is to confirm.' },
+  { status: '500–599', when: 'Partner source is temporarily unavailable or cannot complete the query.', geoPlanBehavior: 'Fail the run and keep the previous checkpoint.' },
+];
+
+const MASTER_DATA_SAMPLE_RESPONSE = {
+  data: [
+    {
+      id: '8617ebd3-0425-484d-95eb-a5d00f85f630',
+      sku: 'ZRA-FOO-OLI-40-036815',
+      barcode: '7067600196000',
+      name: 'Sport Sandal',
+      brand: 'ZRA',
+      category: 'Footwear',
+      department: 'Men',
+      size: '40',
+      color: 'Olive',
+      costPrice: 74.15,
+      retailPrice: 133.48,
+      season: 'SS24',
+      supplier: 'SUP-CHN-001',
+      status: 'ACTIVE',
+      isDeleted: false,
+      deletedAt: null,
+      createdAt: '2024-11-11T21:20:00.283Z',
+      updatedAt: '2026-06-28T15:59:25.283Z',
+    },
+  ],
+  meta: {
+    total: 10,
+    catalogTotal: 100000,
+    page: 1,
+    limit: 1000,
+    totalPages: 1,
+    hasNext: false,
+    hasPrev: false,
+    syncTimestamp: '2026-06-28T16:00:00.000Z',
+  },
+};
+
+const PARTNER_REQUIREMENTS = [
+  {
+    id: 'etp-pos-master-data',
+    partner: 'ETP POS',
+    title: 'Expose product master data to GeoPlan',
+    purpose:
+      'GeoPlan needs the ETP POS product master so barcode transactions and RFID EPC reads resolve to the same SKU. ' +
+      'GeoPlan stores a local copy and adds EPC/TID associations in the RFID layer; ETP POS does not need to add EPC fields to its product model for this phase.',
+    operatingPlan: [
+      { label: 'ETP POS owns', value: 'The hosted product endpoint, source data accuracy, authentication credentials, and availability.' },
+      { label: 'GeoPlan owns', value: 'Calling the endpoint, storing the local copy, maintaining the successful checkpoint, and attaching EPC/TID data.' },
+      { label: 'Initial load', value: 'GeoPlan calls the endpoint without updatedAfter and imports the complete ETP POS catalog.' },
+      { label: 'Nightly plan', value: 'Proposed: GeoPlan runs a cron job every day at 00:00 Asia/Manila and requests only records changed after the last successful checkpoint.' },
+      { label: 'No-change run', value: 'Return an empty data array, total 0, catalogTotal for the full catalog, and a new syncTimestamp.' },
+      { label: 'Failure behavior', value: 'GeoPlan does not advance the checkpoint after a failed run. The same delta range is requested again on the next run.' },
+    ],
+    endpoint: {
+      method: 'GET',
+      path: '/api/v1/products',
+      description:
+        'ETP POS hosts this read-only endpoint. Filtering must happen in the ETP POS database before pagination so a 100,000-product catalog with 10 changes returns only those 10 records.',
+      connection: [
+        { label: 'Base URL', value: 'Provided by ETP POS for each environment; to confirm.' },
+        { label: 'Transport', value: 'HTTPS only.' },
+        { label: 'Authentication', value: 'Server-to-server authentication method and credential rotation process; to confirm with ETP POS.' },
+        { label: 'Ordering', value: 'Stable ascending order by updatedAt, then id, for the duration of one snapshot.' },
+        { label: 'Snapshot rule', value: 'All pages in one run use the same syncTimestamp cutoff. Changes after that cutoff appear in the next run.' },
+        { label: 'Recommended index', value: 'Database index on updatedAt, with id as the tie-breaker where supported.' },
+      ],
+      queryParams: MASTER_DATA_QUERY_PARAMS,
+      productFields: MASTER_DATA_PRODUCT_FIELDS,
+      metaFields: MASTER_DATA_META_FIELDS,
+      errors: MASTER_DATA_ERRORS,
+      sampleRequest:
+        'GET https://<etp-base-url>/api/v1/products?page=1&limit=1000&updatedAfter=2026-06-27T16%3A00%3A00.000Z&includeDeleted=true\n' +
+        '<agreed-authentication-header>: <credential>',
+      sampleResponse: MASTER_DATA_SAMPLE_RESPONSE,
+    },
+    deliveryChecklist: [
+      'Provide development/UAT and production base URLs plus test credentials.',
+      'Apply updatedAfter and includeDeleted in the source database before calculating pagination.',
+      'Keep SKU stable. A SKU rename must emit a deletion for the old SKU and a new record for the replacement SKU.',
+      'Advance updatedAt for every data mutation, including status changes and soft deletion.',
+      'Retain deletion tombstones long enough to cover the agreed maximum middleware outage window.',
+      'Return one stable snapshot across every page and an authoritative syncTimestamp checkpoint.',
+      'Pass acceptance cases for full load, no changes, 10 changes in a 100,000-item catalog, deletion, multiple delta pages, and temporary failure.',
+      'Name a technical owner for contract changes and production incidents.',
+    ],
+    openItems: [
+      'Final base URLs for development/UAT and production.',
+      'Authentication method, credential issuance, and credential rotation.',
+      'Network allowlisting or private connectivity requirements.',
+      'Rate limits, timeout target, maintenance windows, and availability expectation.',
+      'Deletion-tombstone retention period.',
+      'Whether the production contract will use a sequence/composite cursor instead of timestamp-only filtering.',
+      'Final mapping and required status values for optional merchandise fields.',
+    ],
+  },
+  {
+    id: 'samooha-master-data',
+    partner: 'Samooha',
+    title: 'Expose product master data to GeoPlan',
+    purpose:
+      'GeoPlan needs the Samooha product master so Samooha product records and RFID EPC reads resolve to the same SKU. ' +
+      'GeoPlan stores a separate local copy and adds EPC/TID associations in the RFID layer; Samooha does not need to add EPC fields to its product model for this phase.',
+    operatingPlan: [
+      { label: 'Samooha owns', value: 'The hosted product endpoint, source data accuracy, authentication credentials, and availability.' },
+      { label: 'GeoPlan owns', value: 'Calling the endpoint, storing the local copy, maintaining the successful checkpoint, and attaching EPC/TID data.' },
+      { label: 'Initial load', value: 'GeoPlan calls the endpoint without updatedAfter and imports the complete Samooha catalog.' },
+      { label: 'Nightly plan', value: 'Proposed: GeoPlan runs a cron job every day at 00:00 Asia/Manila and requests only records changed after the last successful checkpoint.' },
+      { label: 'No-change run', value: 'Return an empty data array, total 0, catalogTotal for the full catalog, and a new syncTimestamp.' },
+      { label: 'Failure behavior', value: 'GeoPlan does not advance the checkpoint after a failed run. The same delta range is requested again on the next run.' },
+    ],
+    endpoint: {
+      method: 'GET',
+      path: '/api/v1/products',
+      description:
+        'Samooha hosts this read-only endpoint. Filtering must happen in the Samooha database before pagination so a 100,000-product catalog with 10 changes returns only those 10 records.',
+      connection: [
+        { label: 'Base URL', value: 'Provided by Samooha for each environment; to confirm.' },
+        { label: 'Transport', value: 'HTTPS only.' },
+        { label: 'Authentication', value: 'Server-to-server authentication method and credential rotation process; to confirm with Samooha.' },
+        { label: 'Ordering', value: 'Stable ascending order by updatedAt, then id, for the duration of one snapshot.' },
+        { label: 'Snapshot rule', value: 'All pages in one run use the same syncTimestamp cutoff. Changes after that cutoff appear in the next run.' },
+        { label: 'Recommended index', value: 'Database index on updatedAt, with id as the tie-breaker where supported.' },
+      ],
+      queryParams: MASTER_DATA_QUERY_PARAMS,
+      productFields: MASTER_DATA_PRODUCT_FIELDS,
+      metaFields: MASTER_DATA_META_FIELDS,
+      errors: MASTER_DATA_ERRORS,
+      sampleRequest:
+        'GET https://<samooha-base-url>/api/v1/products?page=1&limit=1000&updatedAfter=2026-06-27T16%3A00%3A00.000Z&includeDeleted=true\n' +
+        '<agreed-authentication-header>: <credential>',
+      sampleResponse: MASTER_DATA_SAMPLE_RESPONSE,
+    },
+    deliveryChecklist: [
+      'Provide development/UAT and production base URLs plus test credentials.',
+      'Apply updatedAfter and includeDeleted in the source database before calculating pagination.',
+      'Keep SKU stable. A SKU rename must emit a deletion for the old SKU and a new record for the replacement SKU.',
+      'Advance updatedAt for every data mutation, including status changes and soft deletion.',
+      'Retain deletion tombstones long enough to cover the agreed maximum middleware outage window.',
+      'Return one stable snapshot across every page and an authoritative syncTimestamp checkpoint.',
+      'Pass acceptance cases for full load, no changes, 10 changes in a 100,000-item catalog, deletion, multiple delta pages, and temporary failure.',
+      'Name a technical owner for contract changes and production incidents.',
+    ],
+    openItems: [
+      'Final base URLs for development/UAT and production.',
+      'Authentication method, credential issuance, and credential rotation.',
+      'Network allowlisting or private connectivity requirements.',
+      'Rate limits, timeout target, maintenance windows, and availability expectation.',
+      'Deletion-tombstone retention period.',
+      'Whether the production contract will use a sequence/composite cursor instead of timestamp-only filtering.',
+      'Final mapping and required status values for optional merchandise fields.',
+    ],
   },
 ];
 
@@ -128,8 +361,8 @@ const GROUPS = [
     id: 'master-data-sync',
     name: 'Master Data Sync',
     blurb:
-      'ETL of product master data from the upstream source (likely SAP) into the middleware, ' +
-      'then onward to bridge-agent Redis caches and the ETP product master. Upsert-by-SKU with per-item isolation.',
+      'GeoPlan-owned endpoints for importing partner product masters, inspecting the local copy, and exposing changes downstream. ' +
+      'ETP POS and Samooha source-endpoint requirements are documented separately above.',
     endpoints: [
       {
         id: 'list-master-data',
@@ -187,14 +420,21 @@ const GROUPS = [
         source: 'src/modules/master-data-sync/master-data-sync.controller.ts',
         description:
           'Pulls product pages from the configured source (MASTER_DATA_SYNC_URL → /api/v1/products), ' +
-          'paging at 1000/page with concurrency 5, and upserts by SKU in batches of 100. Items flagged ' +
-          'isDeleted are removed. Pass lastSyncAt for an incremental (delta) run; omit it for a full sync.',
+          'paging at 1000/page with concurrency 5, and upserts by SKU in batches of 100. Items marked ' +
+          'isDeleted are removed. The first run is full; later runs automatically use the latest successful checkpoint.',
         queryParams: [
           {
             name: 'lastSyncAt',
             type: 'ISO-8601 datetime',
             required: false,
-            description: 'Only fetch source records updated after this timestamp (incremental). Omit for full sync.',
+            description: 'Override the stored successful checkpoint and request records updated after this time.',
+          },
+          {
+            name: 'full',
+            type: 'boolean',
+            required: false,
+            default: 'false',
+            description: 'Set true to intentionally bypass the stored checkpoint and run a full import.',
           },
         ],
         responses: [
@@ -205,11 +445,17 @@ const GROUPS = [
               statusCode: 200,
               message: 'Success',
               data: {
-                pagesFetched: 15,
-                totalFetched: 14820,
-                upserted: 14820,
-                durationMs: 8423,
-                lastSyncAt: '2026-06-24T08:20:11.512Z',
+                syncMode: 'DELTA',
+                checkpointUsed: '2026-06-27T16:00:00.000Z',
+                pagesFetched: 1,
+                totalItems: 100000,
+                recordsChecked: 10,
+                recordsSkipped: 99990,
+                totalFetched: 10,
+                upserted: 9,
+                deleted: 1,
+                durationMs: 423,
+                lastSyncAt: '2026-06-28T16:00:00.000Z',
               },
             },
           },
@@ -219,8 +465,9 @@ const GROUPS = [
           { status: 503, code: 'ServiceUnavailable', when: 'Upstream master data source returned a non-2xx for any page.' },
         ],
         notes: [
-          'Returned lastSyncAt is captured at run start; feed it into the next incremental run.',
-          'Source contract is the ICD master-data feed; only sku/gtin(barcode)/productName(name) are currently persisted.',
+          'lastSyncAt is the source-generated snapshot checkpoint and is stored automatically after success.',
+          'totalFetched remains as a compatibility alias for recordsChecked.',
+          'The current module persists SKU, barcode as GTIN, and name. EPC/TID associations remain GeoPlan-owned.',
         ],
       },
       {
@@ -228,8 +475,9 @@ const GROUPS = [
         method: 'GET',
         path: '/master-data-sync/delta',
         title: 'Cache delta feed (bridge agents)',
-        status: 'planned',
+        status: 'implemented',
         auth: true,
+        source: 'src/modules/master-data-sync/master-data-sync.controller.ts',
         description:
           'Incremental feed the bridge-agent Cache Sync Service polls to keep each store’s local Redis EPC↔SKU ' +
           'cache current without a full reload. Returns upserts + tombstones (deletes) since a cursor. Closes the ' +
@@ -253,18 +501,22 @@ const GROUPS = [
             },
           },
         ],
-        notes: ['Supports the brief’s SAP → Middleware → Bridge Redis → ETP master flow.'],
+        notes: ['This endpoint is GeoPlan-owned and is consumed by downstream bridge agents, not by ETP POS or Samooha.'],
       },
       {
         id: 'master-data-status',
         method: 'GET',
         path: '/master-data-sync/status',
         title: 'Last sync status / history',
-        status: 'planned',
+        status: 'implemented',
         auth: true,
+        source: 'src/modules/master-data-sync/master-data-sync.controller.ts',
         description:
           'Returns the outcome of recent sync runs (timestamp, counts, duration, success/failure) so ops can ' +
           'confirm freshness and diagnose stale caches without reading server logs.',
+        queryParams: [
+          { name: 'historyLimit', type: 'integer', required: false, default: '10', description: 'Recent sync runs to return (1–50).' },
+        ],
         responses: [
           {
             status: 200,
@@ -1307,8 +1559,8 @@ const GROUPS = [
 
 // Expose to the renderer (and tolerate a Node/CommonJS context for future tests).
 if (typeof window !== 'undefined') {
-  window.API_DOCS = { API_INFO, CONVENTIONS, GROUPS };
+  window.API_DOCS = { API_INFO, CONVENTIONS, PARTNER_REQUIREMENTS, GROUPS };
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { API_INFO, CONVENTIONS, GROUPS };
+  module.exports = { API_INFO, CONVENTIONS, PARTNER_REQUIREMENTS, GROUPS };
 }

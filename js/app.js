@@ -3,7 +3,7 @@
  * Pure DOM rendering from window.API_DOCS. No framework, no build step, no motion.
  */
 (function () {
-  const { API_INFO, CONVENTIONS, GROUPS } = window.API_DOCS;
+  const { API_INFO, CONVENTIONS, PARTNER_REQUIREMENTS, GROUPS } = window.API_DOCS;
 
   // HTTP method -> tinted pill. Colour is carried by the method label only.
   const METHOD_PILL = {
@@ -39,6 +39,9 @@
       ? '<span class="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 font-mono text-[11px] font-medium text-zinc-600 ring-1 ring-inset ring-zinc-300">🔒 x-api-key</span>'
       : '<span class="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] font-medium text-sky-700 ring-1 ring-inset ring-sky-600/20">🌐 Public</span>';
 
+  const draftBadge = () =>
+    '<span class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-inset ring-amber-600/20">Proposed contract</span>';
+
   // ---- param table ---------------------------------------------------------
 
   const paramTable = (title, rows, columns) => {
@@ -46,7 +49,7 @@
     if (title) {
       wrap.appendChild(el('h4', 'mb-2 text-[13px] font-semibold text-zinc-500', title));
     }
-    const table = el('table', 'w-full border-collapse text-sm');
+    const table = el('table', 'w-full min-w-[680px] border-collapse text-sm');
     const headRow = el('tr');
     columns.forEach((c) =>
       headRow.appendChild(el('th', 'border-b border-zinc-200 py-1.5 pr-4 text-left text-[11px] font-semibold text-zinc-400', c.label)),
@@ -66,7 +69,9 @@
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
-    wrap.appendChild(table);
+    const scroller = el('div', 'overflow-x-auto');
+    scroller.appendChild(table);
+    wrap.appendChild(scroller);
     return wrap;
   };
 
@@ -199,6 +204,129 @@
     return card;
   };
 
+  // ---- partner-owned master-data contracts -------------------------------
+
+  const definitionRows = (rows, embedded = false) => {
+    const list = el(
+      'dl',
+      embedded
+        ? 'mt-4 border-y border-zinc-100'
+        : 'mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white',
+    );
+    rows.forEach((row, index) => {
+      const item = el(
+        'div',
+        `px-4 py-3 sm:grid sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-6 ${index ? 'border-t border-zinc-100' : ''}`,
+      );
+      item.appendChild(el('dt', 'text-[13px] font-semibold text-zinc-500', escapeHtml(row.label)));
+      item.appendChild(el('dd', 'mt-1 text-sm leading-relaxed text-zinc-700 sm:mt-0', escapeHtml(row.value)));
+      list.appendChild(item);
+    });
+    return list;
+  };
+
+  const checklist = (title, items) => {
+    const section = el('div', 'mt-6');
+    section.appendChild(el('h3', 'text-[15px] font-bold text-zinc-900', escapeHtml(title)));
+    const list = el('ul', 'mt-3 space-y-2');
+    items.forEach((item) => {
+      const li = el('li', 'flex gap-3 text-sm leading-relaxed text-zinc-700');
+      li.appendChild(el('span', 'mt-1.5 h-2 w-2 shrink-0 rounded-sm bg-zinc-400'));
+      li.appendChild(el('span', '', escapeHtml(item)));
+      list.appendChild(li);
+    });
+    section.appendChild(list);
+    return section;
+  };
+
+  const partnerRequirementSection = (requirement) => {
+    const section = el('section', 'partner-requirement scroll-mt-24');
+    section.id = `partner-${requirement.id}`;
+    section.dataset.search = `${requirement.partner} ${requirement.title} ${requirement.purpose} ${requirement.deliveryChecklist.join(' ')}`.toLowerCase();
+
+    const heading = el('div', 'border-b border-zinc-200 pb-5');
+    const headingRow = el('div', 'flex flex-wrap items-center gap-3');
+    headingRow.appendChild(el('h2', 'text-2xl font-bold tracking-tight text-zinc-900', escapeHtml(requirement.partner)));
+    headingRow.appendChild(el('span', '', draftBadge()));
+    heading.appendChild(headingRow);
+    heading.appendChild(el('h3', 'mt-2 text-lg font-semibold text-zinc-800', escapeHtml(requirement.title)));
+    heading.appendChild(el('p', 'mt-2 max-w-3xl text-sm leading-relaxed text-zinc-600', escapeHtml(requirement.purpose)));
+    section.appendChild(heading);
+
+    const flow = el('div', 'mt-5 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-950 text-zinc-100');
+    flow.appendChild(el('p', 'border-b border-zinc-800 px-4 py-2.5 text-[12px] font-semibold text-zinc-400', 'Data direction'));
+    const flowLine = el('div', 'flex flex-col gap-2 px-4 py-4 font-mono text-[13px] sm:flex-row sm:items-center');
+    flowLine.innerHTML = `<span class="font-semibold text-white">${escapeHtml(requirement.partner)}</span><span class="text-zinc-500">&rarr;</span><span>GeoPlan middleware database</span><span class="text-zinc-500">&rarr;</span><span>RFID EPC extension</span>`;
+    flow.appendChild(flowLine);
+    section.appendChild(flow);
+
+    section.appendChild(definitionRows(requirement.operatingPlan));
+
+    const endpoint = requirement.endpoint;
+    const contractCard = el('article', 'mt-6 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm');
+    const endpointHead = el('div', 'flex flex-wrap items-center gap-3');
+    endpointHead.appendChild(el('span', 'rounded-md bg-emerald-50 px-2 py-1 font-mono text-[11px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20', endpoint.method));
+    endpointHead.appendChild(el('code', 'font-mono text-sm font-semibold text-zinc-900', escapeHtml(endpoint.path)));
+    endpointHead.appendChild(el('span', 'ml-auto text-xs font-medium text-zinc-500', `Hosted by ${escapeHtml(requirement.partner)}`));
+    contractCard.appendChild(endpointHead);
+    contractCard.appendChild(el('p', 'mt-3 max-w-3xl text-sm leading-relaxed text-zinc-600', escapeHtml(endpoint.description)));
+    contractCard.appendChild(definitionRows(endpoint.connection, true));
+
+    contractCard.appendChild(
+      paramTable('Query parameters', endpoint.queryParams, [
+        { label: 'Name', render: (r) => codeCell(r.name) },
+        { label: 'Type', render: (r) => codeCell(r.type) },
+        { label: 'Required', render: (r) => reqCell(r.required) },
+        { label: 'Default', render: (r) => codeCell(r.default) },
+        { label: 'Purpose', render: (r) => escapeHtml(r.description) },
+      ]),
+    );
+
+    contractCard.appendChild(
+      paramTable('Product fields', endpoint.productFields, [
+        { label: 'Field', render: (r) => codeCell(r.name) },
+        { label: 'Type', render: (r) => codeCell(r.type) },
+        { label: 'Required', render: (r) => reqCell(r.required) },
+        { label: 'Use', render: (r) => escapeHtml(r.description) },
+      ]),
+    );
+
+    contractCard.appendChild(
+      paramTable('Response metadata', endpoint.metaFields, [
+        { label: 'Field', render: (r) => codeCell(r.name) },
+        { label: 'Type', render: (r) => codeCell(r.type) },
+        { label: 'Required', render: (r) => reqCell(r.required) },
+        { label: 'Purpose', render: (r) => escapeHtml(r.description) },
+      ]),
+    );
+    contractCard.appendChild(codeBlock('Example delta request', endpoint.sampleRequest));
+    contractCard.appendChild(codeBlock('Example response', JSON.stringify(endpoint.sampleResponse, null, 2)));
+    contractCard.appendChild(
+      paramTable('Expected error behavior', endpoint.errors, [
+        { label: 'Status', render: (r) => codeCell(r.status) },
+        { label: 'When', render: (r) => escapeHtml(r.when) },
+        { label: 'GeoPlan behavior', render: (r) => escapeHtml(r.geoPlanBehavior) },
+      ]),
+    );
+    section.appendChild(contractCard);
+
+    section.appendChild(checklist(`${requirement.partner} delivery checklist`, requirement.deliveryChecklist));
+
+    const open = el('div', 'mt-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4');
+    open.appendChild(el('h3', 'text-[15px] font-bold text-amber-950', 'Items to confirm together'));
+    const openList = el('ul', 'mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed text-amber-900');
+    requirement.openItems.forEach((item) => openList.appendChild(el('li', '', escapeHtml(item))));
+    open.appendChild(openList);
+    section.appendChild(open);
+
+    return section;
+  };
+
+  const buildPartnerRequirements = () => {
+    const root = document.getElementById('partner-requirements');
+    PARTNER_REQUIREMENTS.forEach((requirement) => root.appendChild(partnerRequirementSection(requirement)));
+  };
+
   // ---- group section -------------------------------------------------------
 
   const countChip = (n, kind) => {
@@ -235,6 +363,15 @@
   // ---- sidebar -------------------------------------------------------------
 
   const buildSidebar = () => {
+    const partnerNav = document.getElementById('partner-sidebar-nav');
+    PARTNER_REQUIREMENTS.forEach((requirement) => {
+      const link = el('a', 'block rounded-md px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900');
+      link.href = `#partner-${requirement.id}`;
+      link.setAttribute('data-nav', '');
+      link.textContent = requirement.partner;
+      partnerNav.appendChild(link);
+    });
+
     const nav = document.getElementById('sidebar-nav');
     GROUPS.forEach((group) => {
       const allPlanned = group.endpoints.every((e) => e.status === 'planned');
@@ -265,7 +402,7 @@
   let searchTerm = '';
 
   const applyFilters = () => {
-    document.querySelectorAll('.endpoint').forEach((card) => {
+    document.querySelectorAll('.endpoint, .partner-requirement').forEach((card) => {
       const matchSearch = !searchTerm || card.dataset.search.includes(searchTerm);
       card.style.display = matchSearch ? '' : 'none';
     });
@@ -339,10 +476,15 @@
     document.getElementById('api-title').textContent = API_INFO.title;
     document.getElementById('api-subtitle').textContent = API_INFO.subtitle;
     document.getElementById('api-base-url').textContent = API_INFO.baseUrl;
+    document.getElementById('document-status').textContent = API_INFO.documentStatus;
+    document.getElementById('document-scope').textContent = API_INFO.documentScope;
+    document.getElementById('document-notice').textContent = API_INFO.documentNotice;
+    document.getElementById('document-revision').textContent = API_INFO.documentRevision;
 
     buildCounts();
     buildConventions();
     buildSidebar();
+    buildPartnerRequirements();
 
     const main = document.getElementById('groups');
     GROUPS.forEach((group) => main.appendChild(groupSection(group)));
